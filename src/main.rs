@@ -30,8 +30,9 @@ struct CameraMarker;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, add_animals)
         .add_systems(Startup, setup)
+        .add_systems(Startup, setup_world)
+        .add_systems(Startup, add_animals)
         .add_systems(Update, move_all)
         .run();
 }
@@ -76,6 +77,19 @@ fn setup(mut commands: Commands) {
     });
 }
 
+fn setup_world(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
+        material: materials.add(Color::DARK_GREEN),
+        transform: Transform::from_translation(Vec3::Y / 2.0),
+        ..default()
+    });
+}
+
 fn add_animals(mut commands: Commands, assets: Res<AssetServer>) {
     let alpaca = assets.load("animals/Alpaca.gltf#Scene0");
     commands.spawn((
@@ -85,7 +99,7 @@ fn add_animals(mut commands: Commands, assets: Res<AssetServer>) {
             ..default()
         },
         Vitality::default(),
-        Velocity(Vec3::new(1.0, 0.0, 0.0)),
+        Velocity(Vec3::new(0.0, 0.0, 1.0)),
     ));
 }
 
