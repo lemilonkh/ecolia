@@ -3,6 +3,11 @@ use std::{f32::consts::PI, time::Duration};
 
 const ANIMAL_PATH: &str = "animals/Alpaca.gltf";
 const BASE_VELOCITY: f32 = 20.0;
+const RUN_ENERGY_DRAIN: f32 = 0.1;
+const EAT_ENERGY_GAIN: f32 = 0.2;
+const EAT_DURATION: f32 = 2.0;
+const DRINK_ENERGY_GAIN: f32 = 0.2;
+const DRINK_DURATION: f32 = 2.0;
 
 #[derive(Component)]
 struct Velocity(Vec3);
@@ -45,7 +50,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Startup, setup_world)
         .add_systems(Startup, add_animals)
-        .add_systems(Update, (find_velocity, move_all))
+        .add_systems(Update, (find_velocity, update_animals))
         .add_systems(
             Update,
             (
@@ -157,7 +162,9 @@ fn find_velocity(
     for (mut velocity, mut transform, mut state, vitality) in &mut query {
         let to_target = cursor_target.0 - transform.translation;
         if to_target.length() < 0.1 {
-            *state = AnimalState::Idle;
+            if *state == AnimalState::Running {
+                *state = AnimalState::Idle;
+            }
             return;
         } else {
             *state = AnimalState::Running;
@@ -194,10 +201,32 @@ fn update_animal_animations(
     }
 }
 
-fn move_all(mut query: Query<(&mut Transform, &Velocity, &AnimalState)>, time: Res<Time>) {
-    for (mut transform, velocity, state) in &mut query {
+fn update_animals(
+    mut query: Query<(&mut Transform, &mut Vitality, &Velocity, &mut AnimalState)>,
+    time: Res<Time>,
+) {
+    for (mut transform, mut vitality, velocity, mut state) in &mut query {
         if *state == AnimalState::Running && velocity.0.length() > 0.0 {
             transform.translation += velocity.0 * time.delta_seconds();
+            vitality.energy = f32::max(
+                vitality.energy - RUN_ENERGY_DRAIN * time.delta_seconds(),
+                0.0,
+            );
+            if vitality.energy == 0.0 {
+                *state = AnimalState::Idle;
+            }
+        }
+
+        if *state == AnimalState::Eating {
+            vitality.energy += f32::min(EAT_ENERGY_GAIN * time.delta_seconds(), 1.0);
+            vitality.hunger -= f32::max(EAT_DURATION * time.delta_seconds(), 0.0);
+            *state = AnimalState::Idle;
+        }
+
+        if *state == AnimalState::Drinking {
+            vitality.energy += f32::min(DRINK_ENERGY_GAIN * time.delta_seconds(), 1.0);
+            vitality.thirst -= f32::max(DRINK_DURATION * time.delta_seconds(), 0.0);
+            *state = AnimalState::Idle;
         }
     }
 }
