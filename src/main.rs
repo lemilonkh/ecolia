@@ -1,8 +1,8 @@
 use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
-use std::f32::consts::PI;
+use std::{f32::consts::PI, time::Duration};
 
 const ANIMAL_PATH: &str = "animals/Alpaca.gltf";
-const BASE_VELOCITY: f32 = 2.0;
+const BASE_VELOCITY: f32 = 20.0;
 
 #[derive(Component)]
 struct Velocity(Vec3);
@@ -13,6 +13,16 @@ struct Vitality {
     energy: f32,
     thirst: f32,
     hunger: f32,
+}
+
+#[derive(Component, PartialEq)]
+enum AnimalState {
+    Idle,
+    Running,
+    Eating,
+    Drinking,
+    Attacking,
+    Dead,
 }
 
 impl Default for Vitality {
@@ -36,7 +46,15 @@ fn main() {
         .add_systems(Startup, setup_world)
         .add_systems(Startup, add_animals)
         .add_systems(Update, (find_velocity, move_all))
-        .add_systems(Update, (setup_scene_once_loaded, keyboard_input, mouse_input))
+        .add_systems(
+            Update,
+            (
+                setup_scene_once_loaded,
+                keyboard_input,
+                mouse_input,
+                update_animal_animations,
+            ),
+        )
         .run();
 }
 
@@ -105,8 +123,8 @@ struct CursorTarget(Vec3);
 fn add_animals(mut commands: Commands, assets: Res<AssetServer>) {
     // build animations graphs
     commands.insert_resource(Animations(vec![
-        assets.load(format!("{}#Animation4", ANIMAL_PATH)),
-        assets.load(format!("{}#Animation1", ANIMAL_PATH)),
+        assets.load(format!("{}#Animation6", ANIMAL_PATH)), // idle
+        assets.load(format!("{}#Animation4", ANIMAL_PATH)), // run
     ]));
 
     let alpaca = assets.load("animals/Alpaca.gltf#Scene0");
@@ -118,6 +136,7 @@ fn add_animals(mut commands: Commands, assets: Res<AssetServer>) {
         },
         Vitality::default(),
         Velocity(Vec3::new(0.0, 0.0, 5.0)),
+        AnimalState::Idle,
     ));
 }
 
@@ -132,18 +151,52 @@ fn setup_scene_once_loaded(
 }
 
 fn find_velocity(
-    mut query: Query<(&mut Velocity, &Transform, &Vitality)>,
+    mut query: Query<(&mut Velocity, &mut Transform, &mut AnimalState, &Vitality)>,
     cursor_target: Res<CursorTarget>,
 ) {
-    for (mut velocity, transform, vitality) in &mut query {
-        velocity.0 = cursor_target.0 - transform.translation;
+    for (mut velocity, mut transform, mut state, vitality) in &mut query {
+        let to_target = cursor_target.0 - transform.translation;
+        if to_target.length() < 0.1 {
+            *state = AnimalState::Idle;
+            return;
+        } else {
+            *state = AnimalState::Running;
+        }
+
+        velocity.0 = to_target.normalize();
         velocity.0 *= BASE_VELOCITY * vitality.energy;
+        transform.look_to(velocity.0, Vec3::Y);
+        transform.rotate_local_y(PI);
     }
 }
 
-fn move_all(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>) {
-    for (mut transform, velocity) in &mut query {
-        if velocity.0.length() > 0.0 {
+fn update_animal_animations(
+    mut query: Query<&AnimalState>,
+    mut animation_players: Query<&mut AnimationPlayer>,
+    animations: Res<Animations>,
+) {
+    // TODO how to associate players to entities?
+    let Ok(mut player) = animation_players.get_single_mut() else {
+        return;
+    };
+    for state in query.iter() {
+        let animation_index: usize = match state {
+            AnimalState::Idle => 0,
+            AnimalState::Running => 1,
+            _ => 2,
+        };
+        player
+            .play_with_transition(
+                animations.0[animation_index].clone_weak(),
+                Duration::from_millis(250),
+            )
+            .repeat();
+    }
+}
+
+fn move_all(mut query: Query<(&mut Transform, &Velocity, &AnimalState)>, time: Res<Time>) {
+    for (mut transform, velocity, state) in &mut query {
+        if *state == AnimalState::Running && velocity.0.length() > 0.0 {
             transform.translation += velocity.0 * time.delta_seconds();
         }
     }
