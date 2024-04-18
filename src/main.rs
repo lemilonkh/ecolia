@@ -2,6 +2,7 @@ use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
 use std::f32::consts::PI;
 
 const ANIMAL_PATH: &str = "animals/Alpaca.gltf";
+const BASE_VELOCITY: f32 = 2.0;
 
 #[derive(Component)]
 struct Velocity(Vec3);
@@ -34,8 +35,8 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Startup, setup_world)
         .add_systems(Startup, add_animals)
-        .add_systems(Update, move_all)
-        .add_systems(Update, (setup_scene_once_loaded, keyboard_input))
+        .add_systems(Update, (find_velocity, move_all))
+        .add_systems(Update, (setup_scene_once_loaded, keyboard_input, mouse_input))
         .run();
 }
 
@@ -63,7 +64,7 @@ fn setup(mut commands: Commands) {
             ..default()
         },
         transform: Transform {
-            translation: Vec3::new(0.0, 2.0, 0.0),
+            translation: Vec3::new(0.0, 100.0, 0.0),
             rotation: Quat::from_rotation_x(-PI / 4.),
             ..default()
         },
@@ -85,16 +86,21 @@ fn setup_world(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    // ground plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Plane3d::default().mesh().size(5000.0, 5000.0)),
         material: materials.add(Color::rgb(0.1, 0.7, 0.2)),
-        transform: Transform::from_translation(Vec3::Y / 2.0),
+        transform: Transform::from_translation(Vec3::ZERO),
         ..default()
     });
+
+    commands.insert_resource(CursorTarget(Vec3::ZERO));
 }
 
 #[derive(Resource)]
 struct Animations(Vec<Handle<AnimationClip>>);
+#[derive(Resource)]
+struct CursorTarget(Vec3);
 
 fn add_animals(mut commands: Commands, assets: Res<AssetServer>) {
     // build animations graphs
@@ -125,6 +131,16 @@ fn setup_scene_once_loaded(
     }
 }
 
+fn find_velocity(
+    mut query: Query<(&mut Velocity, &Transform, &Vitality)>,
+    cursor_target: Res<CursorTarget>,
+) {
+    for (mut velocity, transform, vitality) in &mut query {
+        velocity.0 = cursor_target.0 - transform.translation;
+        velocity.0 *= BASE_VELOCITY * vitality.energy;
+    }
+}
+
 fn move_all(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>) {
     for (mut transform, velocity) in &mut query {
         if velocity.0.length() > 0.0 {
@@ -145,5 +161,41 @@ fn keyboard_input(
                 player.pause();
             }
         }
+    }
+}
+
+fn mouse_input(
+    buttons: Res<ButtonInput<MouseButton>>,
+    camera_query: Query<(&Camera, &GlobalTransform), With<CameraMarker>>,
+    windows: Query<&Window>,
+    mut gizmos: Gizmos,
+    mut cursor_target: ResMut<CursorTarget>,
+) {
+    let (camera, camera_transform) = camera_query.single();
+
+    let Some(cursor_position) = windows.single().cursor_position() else {
+        return;
+    };
+
+    // calculate ray pointing from camera into world based on mouse position
+    let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else {
+        return;
+    };
+
+    // calculate if and where ray is hitting ground plane
+    let Some(distance) = ray.intersect_plane(Vec3::ZERO, Plane3d::new(Vec3::Y)) else {
+        return;
+    };
+    let point = ray.get_point(distance);
+
+    gizmos.circle(
+        point + Vec3::Y * 0.01,
+        Direction3d::new_unchecked(Vec3::Y),
+        0.2,
+        Color::WHITE,
+    );
+
+    if buttons.just_pressed(MouseButton::Left) {
+        cursor_target.0 = point;
     }
 }
