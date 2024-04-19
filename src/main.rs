@@ -5,6 +5,9 @@ use std::{collections::HashMap, f32::consts::PI, time::Duration};
 // assets
 const ANIMATION_COUNT: usize = 12;
 
+// world
+const STAGE_SIZE: f32 = 50.0;
+
 // simulation
 const BASE_VELOCITY: f32 = 20.0;
 const RUN_ENERGY_DRAIN: f32 = 0.05;
@@ -73,8 +76,8 @@ fn main() {
 fn setup(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(30.0, 30.0, 60.0)
-                .looking_at(Vec3::new(0.0, 10.0, 0.0), Vec3::Y),
+            transform: Transform::from_xyz(80.0, 30.0, 80.0)
+                .looking_at(Vec3::new(25.0, 0.0, 25.0), Vec3::Y),
             ..default()
         },
         CameraMarker,
@@ -164,14 +167,18 @@ fn add_animals(
             },
             SceneBundle {
                 scene: alpaca,
-                transform: Transform::from_xyz(rng.f32() * 10.0, 0.0, rng.f32() * 10.0),
+                transform: Transform::from_xyz(rng.f32() * STAGE_SIZE, 0.0, rng.f32() * STAGE_SIZE),
                 ..default()
             },
             Vitality::default(),
             Velocity(Vec3::new(0.0, 0.0, 5.0)),
             AnimalState::Idle,
             RngComponent::from(&mut global_rng),
-            Target(Vec3::new(rng.f32() * 10.0, 0.0, rng.f32() * 10.0)),
+            Target(Vec3::new(
+                rng.f32() * STAGE_SIZE,
+                0.0,
+                rng.f32() * STAGE_SIZE,
+            )),
         ));
     }
 
@@ -208,7 +215,7 @@ fn find_velocity(
         let to_target = target.0 - transform.translation;
         if to_target.length() < 0.1 {
             *state = AnimalState::Idle;
-            target.0 = Vec3::new(&rng.f32() * 10.0, 0.0, &rng.f32() * 10.0);
+            target.0 = Vec3::new(rng.f32() * STAGE_SIZE, 0.0, rng.f32() * STAGE_SIZE);
             continue;
         }
 
@@ -316,7 +323,7 @@ fn mouse_input(
     gizmos.circle(
         point + Vec3::Y * 0.01,
         Direction3d::new_unchecked(Vec3::Y),
-        0.2,
+        0.8,
         Color::WHITE,
     );
 
