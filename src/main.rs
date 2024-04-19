@@ -1,4 +1,5 @@
 use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
+use rand::{rngs::ThreadRng, Rng};
 use std::{collections::HashMap, f32::consts::PI, time::Duration};
 
 // assets
@@ -133,8 +134,14 @@ struct CursorTarget(Vec3);
 struct Animal {
     name: String,
 }
+#[derive(Component)]
+struct Selected;
+#[derive(Component)]
+struct Target(Vec3);
 
 fn add_animals(mut commands: Commands, assets: Res<AssetServer>) {
+    let mut rng = rand::thread_rng();
+
     let mut animations: HashMap<String, Vec<Handle<AnimationClip>>> = HashMap::new();
 
     for animal in ANIMALS {
@@ -153,12 +160,21 @@ fn add_animals(mut commands: Commands, assets: Res<AssetServer>) {
             },
             SceneBundle {
                 scene: alpaca,
-                transform: Transform::from_xyz(0.0, 0.0, 0.0),
+                transform: Transform::from_xyz(
+                    rng.gen_range(0.0..10.0),
+                    0.0,
+                    rng.gen_range(0.0..10.0),
+                ),
                 ..default()
             },
             Vitality::default(),
             Velocity(Vec3::new(0.0, 0.0, 5.0)),
             AnimalState::Idle,
+            Target(Vec3::new(
+                rng.gen_range(0.0..10.0),
+                0.0,
+                rng.gen_range(0.0..10.0),
+            )),
         ));
     }
 
@@ -178,17 +194,24 @@ fn setup_scene_once_loaded(
 }
 
 fn find_velocity(
-    mut query: Query<(&mut Velocity, &mut Transform, &mut AnimalState, &Vitality)>,
-    cursor_target: Res<CursorTarget>,
+    mut query: Query<(
+        &mut Velocity,
+        &mut Transform,
+        &mut AnimalState,
+        &Vitality,
+        &mut Target,
+    )>,
+    mut rng: ResMut<RngResource>,
 ) {
-    for (mut velocity, mut transform, mut state, vitality) in &mut query {
+    for (mut velocity, mut transform, mut state, vitality, mut target) in &mut query {
         if *state != AnimalState::Running && *state != AnimalState::Idle {
             continue;
         }
 
-        let to_target = cursor_target.0 - transform.translation;
+        let to_target = target.0 - transform.translation;
         if to_target.length() < 0.1 {
             *state = AnimalState::Idle;
+            *target.0 = Vec3::new(&rng.0.gen_range(0..10), 0.0, &rng.0.gen_range(0..10));
             continue;
         }
 
