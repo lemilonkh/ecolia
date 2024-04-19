@@ -223,6 +223,7 @@ fn add_nature(mut commands: Commands, assets: Res<AssetServer>, mut global_rng: 
             Vec3::new(rng.f32() * STAGE_SIZE, 0.0, rng.f32() * STAGE_SIZE),
             &mut commands,
             &meshes,
+            &mut rng,
         );
     }
 
@@ -475,6 +476,7 @@ fn mouse_input(
     mut cursor_target: ResMut<CursorTarget>,
     mut commands: Commands,
     plant_meshes: Res<PlantMeshes>,
+    mut rng: ResMut<RngResource>,
 ) {
     let (camera, camera_transform) = camera_query.single();
 
@@ -502,16 +504,22 @@ fn mouse_input(
 
     if buttons.just_pressed(MouseButton::Left) {
         cursor_target.0 = point;
-        spawn_tree(point, &mut commands, &plant_meshes.0);
+        spawn_tree(point, &mut commands, &plant_meshes.0, &mut rng.0);
     }
 }
 
-fn spawn_tree(position: Vec3, commands: &mut Commands, plant_meshes: &[Handle<Scene>]) {
+fn spawn_tree(
+    position: Vec3,
+    commands: &mut Commands,
+    plant_meshes: &[Handle<Scene>],
+    rng: &mut RngComponent,
+) {
     commands.spawn((
         SceneBundle {
             scene: plant_meshes[0].clone(),
             transform: Transform::from_xyz(position.x, position.y, position.z)
-                .with_scale(Vec3::splat(2.0)),
+                .with_scale(Vec3::splat(2.0))
+                .with_rotation(Quat::from_rotation_y(rng.f32() * 2.0 * PI)),
             ..default()
         },
         PlantType::Tree,
