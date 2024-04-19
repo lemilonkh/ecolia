@@ -1,7 +1,10 @@
 use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
-use std::{f32::consts::PI, time::Duration};
+use std::{collections::HashMap, f32::consts::PI, time::Duration};
 
-const ANIMAL_PATH: &str = "animals/Alpaca.gltf";
+// assets
+const ANIMATION_COUNT: usize = 12;
+
+// simulation
 const BASE_VELOCITY: f32 = 20.0;
 const RUN_ENERGY_DRAIN: f32 = 0.05;
 const EAT_ENERGY_GAIN: f32 = 0.2;
@@ -43,6 +46,8 @@ impl Default for Vitality {
 
 #[derive(Component)]
 struct CameraMarker;
+
+const ANIMALS: &[&str] = &["Alpaca", "Deer", "Fox", "Husky", "Stag", "Wolf"];
 
 fn main() {
     App::new()
@@ -121,37 +126,54 @@ fn setup_world(
 }
 
 #[derive(Resource)]
-struct Animations(Vec<Handle<AnimationClip>>);
+struct Animations(HashMap<String, Vec<Handle<AnimationClip>>>);
 #[derive(Resource)]
 struct CursorTarget(Vec3);
+#[derive(Component)]
+struct Animal {
+    name: String,
+}
 
 fn add_animals(mut commands: Commands, assets: Res<AssetServer>) {
-    // build animations graphs
-    commands.insert_resource(Animations(vec![
-        assets.load(format!("{}#Animation6", ANIMAL_PATH)), // idle
-        assets.load(format!("{}#Animation4", ANIMAL_PATH)), // run
-    ]));
+    let mut animations: HashMap<String, Vec<Handle<AnimationClip>>> = HashMap::new();
 
-    let alpaca = assets.load("animals/Alpaca.gltf#Scene0");
-    commands.spawn((
-        SceneBundle {
-            scene: alpaca,
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..default()
-        },
-        Vitality::default(),
-        Velocity(Vec3::new(0.0, 0.0, 5.0)),
-        AnimalState::Idle,
-    ));
+    for animal in ANIMALS {
+        let file_name = format!("animals/{}.glb", animal);
+        // build animation graphs
+        let mut animation_clips: Vec<Handle<AnimationClip>> = vec![];
+        for i in 0..ANIMATION_COUNT {
+            animation_clips.push(assets.load(format!("{}#Animation{}", file_name, i)));
+        }
+        animations.insert(animal.to_string(), animation_clips);
+
+        let alpaca = assets.load(format!("{}#Scene0", file_name));
+        commands.spawn((
+            Animal {
+                name: animal.to_string(),
+            },
+            SceneBundle {
+                scene: alpaca,
+                transform: Transform::from_xyz(0.0, 0.0, 0.0),
+                ..default()
+            },
+            Vitality::default(),
+            Velocity(Vec3::new(0.0, 0.0, 5.0)),
+            AnimalState::Idle,
+        ));
+    }
+
+    commands.insert_resource(Animations(animations));
 }
 
 // Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
     animations: Res<Animations>,
-    mut players: Query<&mut AnimationPlayer, Added<AnimationPlayer>>,
+    mut players: Query<(&mut AnimationPlayer, &Animal), Added<AnimationPlayer>>,
 ) {
-    for mut player in &mut players {
-        player.play(animations.0[0].clone_weak()).repeat();
+    for (mut player, animal) in &mut players {
+        player
+            .play(animations.0[&animal.name][4].clone_weak())
+            .repeat();
     }
 }
 
@@ -179,7 +201,7 @@ fn find_velocity(
 }
 
 fn update_animal_animations(
-    query: Query<&AnimalState>,
+    query: Query<(&AnimalState, &Animal)>,
     mut animation_players: Query<&mut AnimationPlayer>,
     animations: Res<Animations>,
 ) {
@@ -187,7 +209,7 @@ fn update_animal_animations(
     let Ok(mut player) = animation_players.get_single_mut() else {
         return;
     };
-    for state in query.iter() {
+    for (state, animal) in query.iter() {
         let animation_index: usize = match state {
             AnimalState::Idle => 0,
             AnimalState::Running => 1,
@@ -195,7 +217,7 @@ fn update_animal_animations(
         };
         player
             .play_with_transition(
-                animations.0[animation_index].clone_weak(),
+                animations.0[&animal.name][animation_index].clone_weak(),
                 Duration::from_millis(250),
             )
             .repeat();
