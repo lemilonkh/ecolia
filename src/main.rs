@@ -12,7 +12,7 @@ const TREE_SPAWN_TIME: f32 = 1.2;
 
 // simulation
 const BASE_VELOCITY: f32 = 20.0;
-const RUN_ENERGY_DRAIN: f32 = 0.01;
+const RUN_ENERGY_DRAIN: f32 = 0.02;
 const RUN_HUNGER_DRAIN: f32 = 0.005;
 const RUN_THIRST_DRAIN: f32 = 0.01;
 const EAT_ENERGY_GAIN: f32 = 0.2;
@@ -31,7 +31,7 @@ struct Vitality {
     hunger: f32,
 }
 
-#[derive(Component, PartialEq)]
+#[derive(Component, PartialEq, Debug)]
 enum AnimalState {
     Idle,
     Running,
@@ -358,21 +358,39 @@ fn find_velocity(
 }
 
 fn update_animal_animations(
-    mut query: Query<(&AnimalState, &Animal, &mut AnimationPlayer)>,
+    mut players: Query<(Entity, &mut AnimationPlayer)>,
+    query: Query<(&AnimalState, &Animal, &Vitality)>,
     animations: Res<Animations>,
+    parent_query: Query<&Parent>,
 ) {
-    for (state, animal, mut animation_player) in &mut query {
+    for (entity, mut player) in &mut players {
+        let Ok(parent) = parent_query.get(entity) else {
+            println!("Missing parent!");
+            continue;
+        };
+        let Ok(grandparent) = parent_query.get(parent.get()) else {
+            println!("Missing grandparent!");
+            continue;
+        };
+        let Ok(animal_components) = query.get(grandparent.get()) else {
+            println!("Missing animal components!");
+            continue;
+        };
+        let (state, animal, vitality) = animal_components;
+
         let animation_index: usize = match state {
-            AnimalState::Idle => 4,
-            AnimalState::Running => 6,
+            AnimalState::Idle => 6,
+            AnimalState::Running => 4,
+            AnimalState::Eating => 11,
             _ => 8,
         };
-        animation_player
+        player
             .play_with_transition(
                 animations.0[&animal.name][animation_index].clone_weak(),
                 Duration::from_millis(250),
             )
             .repeat();
+        player.set_speed(vitality.energy);
     }
 }
 
