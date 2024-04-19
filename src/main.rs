@@ -1,7 +1,11 @@
 use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_turborand::prelude::*;
-use std::{collections::HashMap, f32::consts::PI, time::Duration};
+use std::{
+    collections::HashMap,
+    f32::{consts::PI, INFINITY},
+    time::Duration,
+};
 
 // assets
 const ANIMATION_COUNT: usize = 12;
@@ -251,24 +255,50 @@ fn setup_scene_once_loaded(
 }
 
 fn find_velocity(
-    mut query: Query<(
-        &mut Velocity,
-        &mut Transform,
-        &mut AnimalState,
-        &Vitality,
-        &mut Target,
-        &mut RngComponent,
-    )>,
+    mut query: Query<
+        (
+            &mut Velocity,
+            &mut Transform,
+            &mut AnimalState,
+            &Vitality,
+            &mut Target,
+        ),
+        With<Animal>,
+    >,
+    plants: Query<(Entity, &Transform, &PlantType), Without<Animal>>,
+    mut commands: Commands,
 ) {
-    for (mut velocity, mut transform, mut state, vitality, mut target, mut rng) in &mut query {
+    for (mut velocity, mut transform, mut state, vitality, mut target) in &mut query {
         if *state != AnimalState::Running && *state != AnimalState::Idle {
             continue;
         }
 
         let to_target = target.0 - transform.translation;
         if to_target.length() < 0.8 {
-            *state = AnimalState::Idle;
-            target.0 = Vec3::new(rng.f32() * STAGE_SIZE, 0.0, rng.f32() * STAGE_SIZE);
+            *state = AnimalState::Eating;
+
+            // TODO add Wait(Timer) component to entity, execute this in timer system when done
+            let mut min_dist = f32::INFINITY;
+            let mut closest_plant: Option<Vec3> = None;
+            for (entity, plant_transform, _plant_type) in &plants {
+                if plant_transform.translation == target.0 {
+                    commands.entity(entity).despawn_recursive();
+                    continue;
+                }
+                let dist = plant_transform
+                    .translation
+                    .distance_squared(transform.translation);
+                if dist < min_dist {
+                    min_dist = dist;
+                    closest_plant = Some(plant_transform.translation);
+                }
+            }
+
+            let Some(target_pos) = closest_plant else {
+                continue;
+            };
+
+            target.0 = target_pos;
             continue;
         }
 
