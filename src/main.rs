@@ -192,7 +192,7 @@ fn add_animals(
             },
             Vitality::default(),
             Velocity(Vec3::new(0.0, 0.0, 5.0)),
-            AnimalState::Idle,
+            AnimalState::Running,
             RngComponent::from(&mut global_rng),
             Target(Vec3::new(
                 rng.f32() * STAGE_SIZE,
@@ -294,14 +294,14 @@ fn find_velocity(
             &mut Transform,
             &mut AnimalState,
             &Vitality,
-            &mut Target,
+            &Target,
         ),
         With<Animal>,
     >,
     mut commands: Commands,
 ) {
-    for (entity, mut velocity, mut transform, mut state, vitality, mut target) in &mut query {
-        if *state != AnimalState::Running && *state != AnimalState::Idle {
+    for (entity, mut velocity, mut transform, mut state, vitality, target) in &mut query {
+        if *state != AnimalState::Running {
             continue;
         }
 
@@ -341,7 +341,7 @@ fn process_wait_timer(
             let mut closest_plant: Option<Vec3> = None;
             if rng.f32() < 0.5 {
                 for (entity, plant_transform, _plant_type) in &plants {
-                    if plant_transform.translation == target.0 {
+                    if plant_transform.translation.distance_squared(target.0) < 0.1 {
                         commands.entity(entity).despawn_recursive();
                         continue;
                     }
@@ -358,9 +358,8 @@ fn process_wait_timer(
                     .iter()
                     .map(|(_, transform, _)| transform)
                     .collect::<Vec<_>>();
-                closest_plant = Some(
-                    transforms[(rng.u32(0..100) % transforms.len() as u32) as usize].translation,
-                );
+                let random_index = rng.u32(0..transforms.len() as u32) as usize;
+                closest_plant = Some(transforms[random_index].translation);
             }
 
             let Some(target_pos) = closest_plant else {
@@ -419,6 +418,7 @@ fn update_animals(
     for (mut transform, mut vitality, velocity, mut state) in &mut query {
         if vitality.health <= 0.0 {
             *state = AnimalState::Dead;
+            return;
         }
 
         if *state == AnimalState::Running && velocity.0.length() > 0.0 {
@@ -434,13 +434,11 @@ fn update_animals(
         if *state == AnimalState::Eating {
             vitality.energy = clamp_unit(vitality.energy + EAT_ENERGY_GAIN * delta);
             vitality.hunger = clamp_unit(vitality.hunger - EAT_DURATION * delta);
-            *state = AnimalState::Idle;
         }
 
         if *state == AnimalState::Drinking {
             vitality.energy = clamp_unit(vitality.energy + DRINK_ENERGY_GAIN * delta);
             vitality.thirst = clamp_unit(vitality.thirst - DRINK_DURATION * delta);
-            *state = AnimalState::Idle;
         }
     }
 }
