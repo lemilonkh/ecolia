@@ -10,7 +10,7 @@ const STAGE_SIZE: f32 = 50.0;
 
 // simulation
 const BASE_VELOCITY: f32 = 20.0;
-const RUN_ENERGY_DRAIN: f32 = 0.05;
+const RUN_ENERGY_DRAIN: f32 = 0.005;
 const EAT_ENERGY_GAIN: f32 = 0.2;
 const EAT_DURATION: f32 = 2.0;
 const DRINK_ENERGY_GAIN: f32 = 0.2;
@@ -60,7 +60,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Startup, setup_world)
         .add_systems(Startup, add_animals)
-        .add_systems(Startup, add_nature)
+        // .add_systems(Startup, add_nature)
         .add_systems(Update, (find_velocity, update_animals))
         .add_systems(
             Update,
@@ -218,12 +218,17 @@ fn add_nature(mut commands: Commands, assets: Res<AssetServer>, mut global_rng: 
 // Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
     animations: Res<Animations>,
-    mut players: Query<(&mut AnimationPlayer, &Animal), Added<AnimationPlayer>>,
+    mut players: Query<&mut AnimationPlayer, Added<AnimationPlayer>>,
 ) {
-    for (mut player, animal) in &mut players {
-        player
-            .play(animations.0[&animal.name][4].clone_weak())
-            .repeat();
+    println!("Anims setup");
+    for mut player in &mut players {
+        println!(
+            "Anims {}: Count {}",
+            // &animal.name,
+            "Alpaca",
+            animations.0["Alpaca"].len()
+        );
+        player.play(animations.0["Alpaca"][4].clone_weak()).repeat();
     }
 }
 
@@ -243,7 +248,7 @@ fn find_velocity(
         }
 
         let to_target = target.0 - transform.translation;
-        if to_target.length() < 0.1 {
+        if to_target.length() < 0.8 {
             *state = AnimalState::Idle;
             target.0 = Vec3::new(rng.f32() * STAGE_SIZE, 0.0, rng.f32() * STAGE_SIZE);
             continue;
