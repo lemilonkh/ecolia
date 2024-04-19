@@ -232,12 +232,10 @@ fn setup_scene_once_loaded(
             println!("Missing grandparent!");
             continue;
         };
-        println!("Grandparent {:#?}", grandparent);
         let Ok(animal) = animals.get(grandparent.get()) else {
             println!("Missing animals!");
             continue;
         };
-        println!("Animal {}", animal.name);
 
         println!(
             "Anims {}: Count {}",
