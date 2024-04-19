@@ -60,6 +60,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Startup, setup_world)
         .add_systems(Startup, add_animals)
+        .add_systems(Startup, add_nature)
         .add_systems(Update, (find_velocity, update_animals))
         .add_systems(
             Update,
@@ -142,6 +143,11 @@ struct Animal {
 struct Selected;
 #[derive(Component)]
 struct Target(Vec3);
+#[derive(Component)]
+enum PlantType {
+    Tree,
+    Bush,
+}
 
 fn add_animals(
     mut commands: Commands,
@@ -183,6 +189,30 @@ fn add_animals(
     }
 
     commands.insert_resource(Animations(animations));
+}
+
+fn add_nature(mut commands: Commands, assets: Res<AssetServer>, mut global_rng: ResMut<GlobalRng>) {
+    let mut rng = RngComponent::from(&mut global_rng);
+
+    for i in 1..=5 {
+        let file_name = format!("nature/BirchTree_{}.glb", i);
+        let mesh = assets.load(format!("{}#Scene0", file_name));
+        for j in 0..4 {
+            commands.spawn((
+                SceneBundle {
+                    scene: mesh.clone(),
+                    transform: Transform::from_xyz(
+                        rng.f32() * STAGE_SIZE,
+                        0.0,
+                        rng.f32() * STAGE_SIZE,
+                    )
+                    .with_scale(Vec3::ONE * 2.0),
+                    ..default()
+                },
+                PlantType::Tree,
+            ));
+        }
+    }
 }
 
 // Once the scene is loaded, start the animation
