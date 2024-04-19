@@ -244,6 +244,7 @@ fn setup_scene_once_loaded(
         player
             .play(animations.0[&animal.name][4].clone_weak())
             .repeat();
+        player.seek_to(entity.index() as f32 / 10.0);
     }
 }
 
