@@ -9,6 +9,7 @@ const ANIMATION_COUNT: usize = 12;
 // world
 const STAGE_SIZE: f32 = 100.0;
 const TREE_SPAWN_TIME: f32 = 1.2;
+const INITIAL_TREE_COUNT: usize = 20;
 
 // simulation
 const BASE_VELOCITY: f32 = 20.0;
@@ -139,6 +140,9 @@ fn setup_world(
 struct Animations(HashMap<String, Vec<Handle<AnimationClip>>>);
 #[derive(Resource)]
 struct CursorTarget(Vec3);
+#[derive(Resource)]
+struct RngResource(RngComponent);
+
 #[derive(Component)]
 struct Animal {
     name: String,
@@ -161,6 +165,7 @@ fn add_animals(
     mut global_rng: ResMut<GlobalRng>,
 ) {
     let mut rng = RngComponent::from(&mut global_rng);
+    commands.insert_resource(RngResource(RngComponent::from(&mut global_rng)));
     let mut animations: HashMap<String, Vec<Handle<AnimationClip>>> = HashMap::new();
 
     for animal in ANIMALS {
@@ -208,21 +213,9 @@ fn add_nature(mut commands: Commands, assets: Res<AssetServer>, mut global_rng: 
         let file_name = format!("nature/BirchTree_{}.glb", i);
         let mesh = assets.load(format!("{}#Scene0", file_name));
         meshes.push(mesh.clone());
-        for _j in 0..8 {
-            commands.spawn((
-                SceneBundle {
-                    scene: mesh.clone(),
-                    transform: Transform::from_xyz(
-                        rng.f32() * STAGE_SIZE,
-                        0.0,
-                        rng.f32() * STAGE_SIZE,
-                    )
-                    .with_scale(Vec3::splat(2.0)),
-                    ..default()
-                },
-                PlantType::Tree,
-            ));
-        }
+    }
+    for _j in 0..INITIAL_TREE_COUNT {
+        spawn_tree(&mut commands, &meshes, &mut rng);
     }
 
     commands.insert_resource(PlantMeshes(meshes));
@@ -453,6 +446,9 @@ fn mouse_input(
     windows: Query<&Window>,
     mut gizmos: Gizmos,
     mut cursor_target: ResMut<CursorTarget>,
+    mut commands: Commands,
+    plant_meshes: Res<PlantMeshes>,
+    mut rng: ResMut<RngResource>,
 ) {
     let (camera, camera_transform) = camera_query.single();
 
@@ -480,5 +476,18 @@ fn mouse_input(
 
     if buttons.just_pressed(MouseButton::Left) {
         cursor_target.0 = point;
+        spawn_tree(&mut commands, &plant_meshes.0, &mut rng.0);
     }
+}
+
+fn spawn_tree(commands: &mut Commands, plant_meshes: &[Handle<Scene>], rng: &mut RngComponent) {
+    commands.spawn((
+        SceneBundle {
+            scene: plant_meshes[0].clone(),
+            transform: Transform::from_xyz(rng.f32() * STAGE_SIZE, 0.0, rng.f32() * STAGE_SIZE)
+                .with_scale(Vec3::splat(2.0)),
+            ..default()
+        },
+        PlantType::Tree,
+    ));
 }
