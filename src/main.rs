@@ -398,45 +398,38 @@ fn update_animals(
     mut query: Query<(&mut Transform, &mut Vitality, &Velocity, &mut AnimalState)>,
     time: Res<Time>,
 ) {
+    let delta = time.delta_seconds();
     for (mut transform, mut vitality, velocity, mut state) in &mut query {
+        if vitality.health <= 0.0 {
+            *state = AnimalState::Dead;
+        }
+
         if *state == AnimalState::Running && velocity.0.length() > 0.0 {
-            transform.translation += velocity.0 * time.delta_seconds();
-            vitality.energy = f32::max(
-                vitality.energy - RUN_ENERGY_DRAIN * time.delta_seconds(),
-                0.0,
-            );
+            transform.translation += velocity.0 * delta;
+            vitality.energy = clamp_unit(vitality.energy - RUN_ENERGY_DRAIN * delta);
             if vitality.energy == 0.0 {
-                *state = AnimalState::Dead;
+                *state = AnimalState::Idle;
             }
-            vitality.hunger = f32::max(
-                vitality.hunger - RUN_HUNGER_DRAIN * time.delta_seconds(),
-                0.0,
-            );
-            vitality.thirst = f32::max(
-                vitality.thirst - RUN_THIRST_DRAIN * time.delta_seconds(),
-                0.0,
-            );
+            vitality.hunger = clamp_unit(vitality.hunger - RUN_HUNGER_DRAIN * delta);
+            vitality.thirst = clamp_unit(vitality.thirst - RUN_THIRST_DRAIN * delta);
         }
 
         if *state == AnimalState::Eating {
-            vitality.energy = f32::min(
-                vitality.energy + EAT_ENERGY_GAIN * time.delta_seconds(),
-                1.0,
-            );
-            vitality.hunger = f32::max(vitality.hunger - EAT_DURATION * time.delta_seconds(), 0.0);
+            vitality.energy = clamp_unit(vitality.energy + EAT_ENERGY_GAIN * delta);
+            vitality.hunger = clamp_unit(vitality.hunger - EAT_DURATION * delta);
             *state = AnimalState::Idle;
         }
 
         if *state == AnimalState::Drinking {
-            vitality.energy = f32::min(
-                vitality.energy + DRINK_ENERGY_GAIN * time.delta_seconds(),
-                1.0,
-            );
-            vitality.thirst =
-                f32::max(vitality.thirst - DRINK_DURATION * time.delta_seconds(), 0.0);
+            vitality.energy = clamp_unit(vitality.energy + DRINK_ENERGY_GAIN * delta);
+            vitality.thirst = clamp_unit(vitality.thirst - DRINK_DURATION * delta);
             *state = AnimalState::Idle;
         }
     }
+}
+
+fn clamp_unit(x: f32) -> f32 {
+    x.clamp(0.0, 1.0)
 }
 
 fn keyboard_input(
