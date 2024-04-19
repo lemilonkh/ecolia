@@ -1,5 +1,5 @@
 use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
-use rand::{rngs::ThreadRng, Rng};
+use bevy_turborand::prelude::*;
 use std::{collections::HashMap, f32::consts::PI, time::Duration};
 
 // assets
@@ -53,6 +53,7 @@ const ANIMALS: &[&str] = &["Alpaca", "Deer", "Fox", "Husky", "Stag", "Wolf"];
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugins(RngPlugin::default())
         .add_systems(Startup, setup)
         .add_systems(Startup, setup_world)
         .add_systems(Startup, add_animals)
@@ -139,9 +140,12 @@ struct Selected;
 #[derive(Component)]
 struct Target(Vec3);
 
-fn add_animals(mut commands: Commands, assets: Res<AssetServer>) {
-    let mut rng = rand::thread_rng();
-
+fn add_animals(
+    mut commands: Commands,
+    assets: Res<AssetServer>,
+    mut global_rng: ResMut<GlobalRng>,
+) {
+    let mut rng = RngComponent::from(&mut global_rng);
     let mut animations: HashMap<String, Vec<Handle<AnimationClip>>> = HashMap::new();
 
     for animal in ANIMALS {
@@ -160,21 +164,14 @@ fn add_animals(mut commands: Commands, assets: Res<AssetServer>) {
             },
             SceneBundle {
                 scene: alpaca,
-                transform: Transform::from_xyz(
-                    rng.gen_range(0.0..10.0),
-                    0.0,
-                    rng.gen_range(0.0..10.0),
-                ),
+                transform: Transform::from_xyz(rng.f32() * 10.0, 0.0, rng.f32() * 10.0),
                 ..default()
             },
             Vitality::default(),
             Velocity(Vec3::new(0.0, 0.0, 5.0)),
             AnimalState::Idle,
-            Target(Vec3::new(
-                rng.gen_range(0.0..10.0),
-                0.0,
-                rng.gen_range(0.0..10.0),
-            )),
+            RngComponent::from(&mut global_rng),
+            Target(Vec3::new(rng.f32() * 10.0, 0.0, rng.f32() * 10.0)),
         ));
     }
 
@@ -200,10 +197,10 @@ fn find_velocity(
         &mut AnimalState,
         &Vitality,
         &mut Target,
+        &mut RngComponent,
     )>,
-    mut rng: ResMut<RngResource>,
 ) {
-    for (mut velocity, mut transform, mut state, vitality, mut target) in &mut query {
+    for (mut velocity, mut transform, mut state, vitality, mut target, mut rng) in &mut query {
         if *state != AnimalState::Running && *state != AnimalState::Idle {
             continue;
         }
@@ -211,7 +208,7 @@ fn find_velocity(
         let to_target = target.0 - transform.translation;
         if to_target.length() < 0.1 {
             *state = AnimalState::Idle;
-            *target.0 = Vec3::new(&rng.0.gen_range(0..10), 0.0, &rng.0.gen_range(0..10));
+            target.0 = Vec3::new(&rng.f32() * 10.0, 0.0, &rng.f32() * 10.0);
             continue;
         }
 
