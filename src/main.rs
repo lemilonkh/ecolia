@@ -64,7 +64,6 @@ fn main() {
             Update,
             (
                 setup_scene_once_loaded,
-                // debug_players,
                 keyboard_input,
                 mouse_input,
                 find_velocity,
@@ -245,23 +244,6 @@ fn setup_scene_once_loaded(
         player
             .play(animations.0[&animal.name][4].clone_weak())
             .repeat();
-    }
-}
-
-fn debug_players(
-    animations: Res<Animations>,
-    mut players: Query<(Entity, &AnimationPlayer), Added<AnimationPlayer>>,
-    world: &World,
-) {
-    println!("Debug Players");
-    for (entity, mut player) in &mut players {
-        println!("Entity {:#?}", world.inspect_entity(entity));
-        println!(
-            "Anims {}: Count {}",
-            // &animal.name,
-            "Alpaca",
-            animations.0["Alpaca"].len()
-        );
     }
 }
 
