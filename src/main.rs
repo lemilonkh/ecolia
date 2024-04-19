@@ -20,6 +20,7 @@ const EAT_ENERGY_GAIN: f32 = 0.2;
 const EAT_DURATION: f32 = 2.0;
 const DRINK_ENERGY_GAIN: f32 = 0.2;
 const DRINK_DURATION: f32 = 2.0;
+const CLOSEST_PLANT_PROBABILITY: f32 = 0.6;
 
 #[derive(Component)]
 struct Velocity(Vec3);
@@ -218,7 +219,11 @@ fn add_nature(mut commands: Commands, assets: Res<AssetServer>, mut global_rng: 
         meshes.push(mesh.clone());
     }
     for _j in 0..INITIAL_TREE_COUNT {
-        spawn_tree(&mut commands, &meshes, &mut rng);
+        spawn_tree(
+            Vec3::new(rng.f32() * STAGE_SIZE, 0.0, rng.f32() * STAGE_SIZE),
+            &mut commands,
+            &meshes,
+        );
     }
 
     commands.insert_resource(PlantMeshes(meshes));
@@ -339,7 +344,7 @@ fn process_wait_timer(
         if timer.0.tick(time.delta()).just_finished() {
             let mut min_dist = f32::INFINITY;
             let mut closest_plant: Option<Vec3> = None;
-            if rng.f32() < 0.5 {
+            if rng.f32() < CLOSEST_PLANT_PROBABILITY {
                 for (entity, plant_transform, _plant_type) in &plants {
                     if plant_transform.translation.distance_squared(target.0) < 0.1 {
                         commands.entity(entity).despawn_recursive();
@@ -470,7 +475,6 @@ fn mouse_input(
     mut cursor_target: ResMut<CursorTarget>,
     mut commands: Commands,
     plant_meshes: Res<PlantMeshes>,
-    mut rng: ResMut<RngResource>,
 ) {
     let (camera, camera_transform) = camera_query.single();
 
@@ -498,15 +502,15 @@ fn mouse_input(
 
     if buttons.just_pressed(MouseButton::Left) {
         cursor_target.0 = point;
-        spawn_tree(&mut commands, &plant_meshes.0, &mut rng.0);
+        spawn_tree(point, &mut commands, &plant_meshes.0);
     }
 }
 
-fn spawn_tree(commands: &mut Commands, plant_meshes: &[Handle<Scene>], rng: &mut RngComponent) {
+fn spawn_tree(position: Vec3, commands: &mut Commands, plant_meshes: &[Handle<Scene>]) {
     commands.spawn((
         SceneBundle {
             scene: plant_meshes[0].clone(),
-            transform: Transform::from_xyz(rng.f32() * STAGE_SIZE, 0.0, rng.f32() * STAGE_SIZE)
+            transform: Transform::from_xyz(position.x, position.y, position.z)
                 .with_scale(Vec3::splat(2.0)),
             ..default()
         },
