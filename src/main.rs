@@ -42,8 +42,8 @@ impl Default for Vitality {
         Vitality {
             health: 1.0,
             energy: 1.0,
-            thirst: 0.0,
-            hunger: 0.0,
+            thirst: 1.0,
+            hunger: 1.0,
         }
     }
 }
@@ -194,7 +194,7 @@ fn add_animals(
 fn add_nature(mut commands: Commands, assets: Res<AssetServer>, mut global_rng: ResMut<GlobalRng>) {
     let mut rng = RngComponent::from(&mut global_rng);
 
-    for i in 1..=5 {
+    for i in 2..=5 {
         let file_name = format!("nature/BirchTree_{}.glb", i);
         let mesh = assets.load(format!("{}#Scene0", file_name));
         for j in 0..4 {
@@ -206,7 +206,7 @@ fn add_nature(mut commands: Commands, assets: Res<AssetServer>, mut global_rng: 
                         0.0,
                         rng.f32() * STAGE_SIZE,
                     )
-                    .with_scale(Vec3::ONE * 2.0),
+                    .with_scale(Vec3::splat(2.0)),
                     ..default()
                 },
                 PlantType::Tree,
@@ -258,21 +258,16 @@ fn find_velocity(
 }
 
 fn update_animal_animations(
-    query: Query<(&AnimalState, &Animal)>,
-    mut animation_players: Query<&mut AnimationPlayer>,
+    mut query: Query<(&AnimalState, &Animal, &mut AnimationPlayer)>,
     animations: Res<Animations>,
 ) {
-    // TODO how to associate players to entities?
-    let Ok(mut player) = animation_players.get_single_mut() else {
-        return;
-    };
-    for (state, animal) in query.iter() {
+    for (state, animal, mut animation_player) in &mut query {
         let animation_index: usize = match state {
-            AnimalState::Idle => 0,
-            AnimalState::Running => 1,
-            _ => 2,
+            AnimalState::Idle => 4,
+            AnimalState::Running => 6,
+            _ => 8,
         };
-        player
+        animation_player
             .play_with_transition(
                 animations.0[&animal.name][animation_index].clone_weak(),
                 Duration::from_millis(250),
