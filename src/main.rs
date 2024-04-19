@@ -1,17 +1,14 @@
 use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_turborand::prelude::*;
-use std::{
-    collections::HashMap,
-    f32::{consts::PI, INFINITY},
-    time::Duration,
-};
+use std::{collections::HashMap, f32::consts::PI, time::Duration};
 
 // assets
 const ANIMATION_COUNT: usize = 12;
 
 // world
-const STAGE_SIZE: f32 = 50.0;
+const STAGE_SIZE: f32 = 100.0;
+const TREE_SPAWN_TIME: f32 = 0.4;
 
 // simulation
 const BASE_VELOCITY: f32 = 20.0;
@@ -72,6 +69,7 @@ fn main() {
                 setup_scene_once_loaded,
                 keyboard_input,
                 mouse_input,
+                respawn_trees,
                 find_velocity,
                 update_animals,
                 update_animal_animations,
@@ -83,8 +81,8 @@ fn main() {
 fn setup(mut commands: Commands) {
     commands.spawn((
         Camera3dBundle {
-            transform: Transform::from_xyz(80.0, 30.0, 80.0)
-                .looking_at(Vec3::new(25.0, 0.0, 25.0), Vec3::Y),
+            transform: Transform::from_xyz(80.0, 30.0, 180.0)
+                .looking_at(Vec3::new(50.0, 0.0, 50.0), Vec3::Y),
             ..default()
         },
         CameraMarker,
@@ -154,6 +152,8 @@ enum PlantType {
     Tree,
     Bush,
 }
+#[derive(Component)]
+struct TreeSpawner(Timer);
 
 fn add_animals(
     mut commands: Commands,
@@ -197,16 +197,52 @@ fn add_animals(
     commands.insert_resource(Animations(animations));
 }
 
+#[derive(Resource)]
+struct PlantMeshes(Vec<Handle<Scene>>);
+
 fn add_nature(mut commands: Commands, assets: Res<AssetServer>, mut global_rng: ResMut<GlobalRng>) {
     let mut rng = RngComponent::from(&mut global_rng);
+    let mut meshes = vec![];
 
     for i in 2..=5 {
         let file_name = format!("nature/BirchTree_{}.glb", i);
         let mesh = assets.load(format!("{}#Scene0", file_name));
-        for j in 0..4 {
+        meshes.push(mesh.clone());
+        for _j in 0..8 {
             commands.spawn((
                 SceneBundle {
                     scene: mesh.clone(),
+                    transform: Transform::from_xyz(
+                        rng.f32() * STAGE_SIZE,
+                        0.0,
+                        rng.f32() * STAGE_SIZE,
+                    )
+                    .with_scale(Vec3::splat(2.0)),
+                    ..default()
+                },
+                PlantType::Tree,
+            ));
+        }
+    }
+
+    commands.insert_resource(PlantMeshes(meshes));
+    commands.spawn((
+        TreeSpawner(Timer::from_seconds(TREE_SPAWN_TIME, TimerMode::Repeating)),
+        rng,
+    ));
+}
+
+fn respawn_trees(
+    mut tree_spawner: Query<(&mut TreeSpawner, &mut RngComponent)>,
+    time: Res<Time>,
+    mut commands: Commands,
+    plant_meshes: Res<PlantMeshes>,
+) {
+    for (mut timer, mut rng) in &mut tree_spawner {
+        if timer.0.tick(time.delta()).just_finished() {
+            commands.spawn((
+                SceneBundle {
+                    scene: plant_meshes.0[0].clone(),
                     transform: Transform::from_xyz(
                         rng.f32() * STAGE_SIZE,
                         0.0,
