@@ -1,4 +1,5 @@
 use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_turborand::prelude::*;
 use std::{collections::HashMap, f32::consts::PI, time::Duration};
 
@@ -57,6 +58,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(RngPlugin::default())
+        .add_plugins(WorldInspectorPlugin::new())
         .add_systems(Startup, (setup, setup_world, add_animals, add_nature))
         .add_systems(
             Update,
