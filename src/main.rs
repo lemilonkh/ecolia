@@ -57,17 +57,15 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(RngPlugin::default())
-        .add_systems(Startup, setup)
-        .add_systems(Startup, setup_world)
-        .add_systems(Startup, add_animals)
-        // .add_systems(Startup, add_nature)
-        .add_systems(Update, (find_velocity, update_animals))
+        .add_systems(Startup, (setup, setup_world, add_animals, add_nature))
         .add_systems(
             Update,
             (
                 setup_scene_once_loaded,
                 keyboard_input,
                 mouse_input,
+                find_velocity,
+                update_animals,
                 update_animal_animations,
             ),
         )
