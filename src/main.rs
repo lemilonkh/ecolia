@@ -219,17 +219,34 @@ fn add_nature(mut commands: Commands, assets: Res<AssetServer>, mut global_rng: 
 // Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
     animations: Res<Animations>,
-    mut players: Query<&mut AnimationPlayer, Added<AnimationPlayer>>,
+    mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
+    parent_query: Query<&Parent>,
+    animals: Query<&Animal>,
 ) {
-    println!("Anims setup");
-    for mut player in &mut players {
+    for (entity, mut player) in &mut players {
+        let Ok(parent) = parent_query.get(entity) else {
+            println!("Missing parent!");
+            continue;
+        };
+        let Ok(grandparent) = parent_query.get(parent.get()) else {
+            println!("Missing grandparent!");
+            continue;
+        };
+        println!("Grandparent {:#?}", grandparent);
+        let Ok(animal) = animals.get(grandparent.get()) else {
+            println!("Missing animals!");
+            continue;
+        };
+        println!("Animal {}", animal.name);
+
         println!(
             "Anims {}: Count {}",
-            // &animal.name,
-            "Alpaca",
-            animations.0["Alpaca"].len()
+            animal.name,
+            animations.0[&animal.name].len()
         );
-        player.play(animations.0["Alpaca"][4].clone_weak()).repeat();
+        player
+            .play(animations.0[&animal.name][4].clone_weak())
+            .repeat();
     }
 }
 
