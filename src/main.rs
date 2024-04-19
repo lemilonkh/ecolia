@@ -8,7 +8,7 @@ const ANIMATION_COUNT: usize = 12;
 
 // world
 const STAGE_SIZE: f32 = 100.0;
-const TREE_SPAWN_TIME: f32 = 0.4;
+const TREE_SPAWN_TIME: f32 = 1.2;
 
 // simulation
 const BASE_VELOCITY: f32 = 20.0;
@@ -298,13 +298,14 @@ fn find_velocity(
             &mut AnimalState,
             &Vitality,
             &mut Target,
+            &mut RngComponent,
         ),
         With<Animal>,
     >,
     plants: Query<(Entity, &Transform, &PlantType), Without<Animal>>,
     mut commands: Commands,
 ) {
-    for (mut velocity, mut transform, mut state, vitality, mut target) in &mut query {
+    for (mut velocity, mut transform, mut state, vitality, mut target, mut rng) in &mut query {
         if *state != AnimalState::Running && *state != AnimalState::Idle {
             continue;
         }
@@ -316,18 +317,28 @@ fn find_velocity(
             // TODO add Wait(Timer) component to entity, execute this in timer system when done
             let mut min_dist = f32::INFINITY;
             let mut closest_plant: Option<Vec3> = None;
-            for (entity, plant_transform, _plant_type) in &plants {
-                if plant_transform.translation == target.0 {
-                    commands.entity(entity).despawn_recursive();
-                    continue;
+            if rng.f32() < 0.5 {
+                for (entity, plant_transform, _plant_type) in &plants {
+                    if plant_transform.translation == target.0 {
+                        commands.entity(entity).despawn_recursive();
+                        continue;
+                    }
+                    let dist = plant_transform
+                        .translation
+                        .distance_squared(transform.translation);
+                    if dist < min_dist {
+                        min_dist = dist;
+                        closest_plant = Some(plant_transform.translation);
+                    }
                 }
-                let dist = plant_transform
-                    .translation
-                    .distance_squared(transform.translation);
-                if dist < min_dist {
-                    min_dist = dist;
-                    closest_plant = Some(plant_transform.translation);
-                }
+            } else {
+                let transforms = plants
+                    .iter()
+                    .map(|(_, transform, _)| transform)
+                    .collect::<Vec<_>>();
+                closest_plant = Some(
+                    transforms[(rng.u32(0..100) % transforms.len() as u32) as usize].translation,
+                );
             }
 
             let Some(target_pos) = closest_plant else {
