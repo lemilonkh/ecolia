@@ -74,6 +74,7 @@ fn main() {
                 find_velocity,
                 update_animals,
                 update_animal_animations,
+                process_wait_timer,
             ),
         )
         .run();
@@ -158,6 +159,8 @@ enum PlantType {
 }
 #[derive(Component)]
 struct TreeSpawner(Timer);
+#[derive(Component)]
+struct WaitTimer(Timer);
 
 fn add_animals(
     mut commands: Commands,
@@ -286,19 +289,18 @@ fn setup_scene_once_loaded(
 fn find_velocity(
     mut query: Query<
         (
+            Entity,
             &mut Velocity,
             &mut Transform,
             &mut AnimalState,
             &Vitality,
             &mut Target,
-            &mut RngComponent,
         ),
         With<Animal>,
     >,
-    plants: Query<(Entity, &Transform, &PlantType), Without<Animal>>,
     mut commands: Commands,
 ) {
-    for (mut velocity, mut transform, mut state, vitality, mut target, mut rng) in &mut query {
+    for (entity, mut velocity, mut transform, mut state, vitality, mut target) in &mut query {
         if *state != AnimalState::Running && *state != AnimalState::Idle {
             continue;
         }
@@ -307,7 +309,34 @@ fn find_velocity(
         if to_target.length() < 0.8 {
             *state = AnimalState::Eating;
 
-            // TODO add Wait(Timer) component to entity, execute this in timer system when done
+            // add WaitTimer component to entity, execute this in timer system when done
+            commands
+                .entity(entity)
+                .insert(WaitTimer(Timer::from_seconds(5.0, TimerMode::Once)));
+        }
+
+        *state = AnimalState::Running;
+        velocity.0 = to_target.normalize();
+        velocity.0 *= BASE_VELOCITY * vitality.energy;
+        transform.look_to(velocity.0, Vec3::Y);
+        transform.rotate_local_y(PI);
+    }
+}
+
+fn process_wait_timer(
+    time: Res<Time>,
+    mut query: Query<(
+        &mut WaitTimer,
+        &Transform,
+        &mut RngComponent,
+        &mut AnimalState,
+        &mut Target,
+    )>,
+    plants: Query<(Entity, &Transform, &PlantType)>,
+    mut commands: Commands,
+) {
+    for (mut timer, transform, mut rng, mut state, mut target) in &mut query {
+        if timer.0.tick(time.delta()).just_finished() {
             let mut min_dist = f32::INFINITY;
             let mut closest_plant: Option<Vec3> = None;
             if rng.f32() < 0.5 {
@@ -339,14 +368,9 @@ fn find_velocity(
             };
 
             target.0 = target_pos;
+            *state = AnimalState::Running;
             continue;
         }
-
-        *state = AnimalState::Running;
-        velocity.0 = to_target.normalize();
-        velocity.0 *= BASE_VELOCITY * vitality.energy;
-        transform.look_to(velocity.0, Vec3::Y);
-        transform.rotate_local_y(PI);
     }
 }
 
