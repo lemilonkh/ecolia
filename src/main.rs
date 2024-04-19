@@ -364,7 +364,7 @@ fn process_wait_timer(
                     .iter()
                     .map(|(_, transform, _)| transform)
                     .collect::<Vec<_>>();
-                let random_index = rng.u32(0..transforms.len() as u32) as usize;
+                let random_index = rng.usize(0..transforms.len());
                 closest_plant = Some(transforms[random_index].translation);
             }
 
@@ -374,7 +374,6 @@ fn process_wait_timer(
 
             target.0 = target_pos;
             *state = AnimalState::Running;
-            continue;
         }
     }
 }
@@ -516,9 +515,9 @@ fn spawn_tree(
 ) {
     commands.spawn((
         SceneBundle {
-            scene: plant_meshes[0].clone(),
+            scene: plant_meshes[rng.usize(0..plant_meshes.len())].clone(),
             transform: Transform::from_xyz(position.x, position.y, position.z)
-                .with_scale(Vec3::splat(2.0))
+                .with_scale(Vec3::splat(rng.f32() + 1.5))
                 .with_rotation(Quat::from_rotation_y(rng.f32() * 2.0 * PI)),
             ..default()
         },
