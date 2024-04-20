@@ -516,7 +516,7 @@ fn spawn_tree(
     commands.spawn((
         SceneBundle {
             scene: plant_meshes[rng.usize(0..plant_meshes.len())].clone(),
-            transform: Transform::from_xyz(position.x, position.y, position.z)
+            transform: Transform::from_translation(position)
                 .with_scale(Vec3::splat(rng.f32() + 1.5))
                 .with_rotation(Quat::from_rotation_y(rng.f32() * 2.0 * PI)),
             ..default()
